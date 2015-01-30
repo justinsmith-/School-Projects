@@ -1,0 +1,574 @@
+public class MidiNote{
+    // This is a number corresponding to the pitch value
+    // of this note. This follows the MIDI numbering
+    // from 21 ( an A0 note ) to 108 ( a C8 note ) 
+    private int pitch = 60;
+
+    // This is the duration of this note in beats
+    private int duration = 1;
+
+    // This determines if this note gets played, or
+    // if this represents a silence of a particular 
+    // duration.
+    private boolean silent = false;
+
+    public MidiNote(int pitch, int duration){
+        this.setPitch(pitch);
+        this.setDuration(duration);
+        // minimum duration for a note is 1 beat
+        if(this.duration <= 0){
+            this.duration = 1;
+        }
+    }
+    
+    // GETTER METHODS
+
+    public int getPitch(){
+     return pitch;
+    }
+    
+    public int getDuration(){
+       return duration; 
+    }
+    
+    public boolean isSilent(){
+        return silent;
+    }
+    
+    // This method will tell you how many octaves up or down
+    // this note is. A value of 0 means that the note is in the
+    // range from 60 ( a C4 note ) to 71 ( a B4 note )
+    public int getOctave(){
+        int octave = (int) (Math.floor((this.pitch - 60.0)/12.0));
+        return octave;
+    }    
+    
+    // SETTER METHODS
+
+    public boolean setPitch(int pitch){
+     if (pitch < 21){
+        if (pitch == 0){
+         this.pitch = 0;
+         return true;
+        }
+        this.pitch = 21;
+     } else if (pitch <= 108) {
+      this.pitch = pitch;
+      return true;
+        } else {
+            this.pitch = 108;
+        }
+        System.out.println("Pitch "+pitch+" out of valid range [ 21 to 108 ]!");
+     return false;
+    }
+    
+    public boolean setDuration(int duration){
+     if ( duration > 0){
+      this.duration = duration;
+      return true;
+     }
+     return false;
+    }   
+    
+    public void setSilent(boolean value){
+        this.silent = value;
+    }
+    
+    // toString method. Useful for debugging your code
+    public String toString(){
+        return "( duration: "+duration+", pitch: "+pitch+", silent: "+silent+" )";
+    }
+
+    public int getVolume(){
+        return 64; 
+    }
+}
+
+//NEXT FILE:
+
+import java.util.ArrayList;
+import java.util.Hashtable;
+
+public class MidiTrack{
+    private Hashtable<Character,Integer> noteToPitch;
+
+    private ArrayList<MidiNote> notes;
+    private int instrumentId;
+    
+    // The constructor for this class
+    public MidiTrack(int instrumentId){
+        notes = new ArrayList<MidiNote>();
+        this.instrumentId = instrumentId;
+        this.initPitchDictionary();
+    }
+
+    // This initialises the noteToPitch dictionary,
+    // which will be used by you to convert note letters
+    // to pitch numbers
+    public void initPitchDictionary()
+    {
+        noteToPitch  = new Hashtable<Character, Integer>();
+        noteToPitch.put('C', 60);
+        noteToPitch.put('D', 62);
+        noteToPitch.put('E', 64);
+        noteToPitch.put('F', 65);
+        noteToPitch.put('G', 67);
+        noteToPitch.put('A', 69);
+        noteToPitch.put('B', 71);
+    }
+
+    // GETTER METHODS
+    public ArrayList<MidiNote> getNotes()
+    {
+        return notes;
+    }
+    
+    public int getInstrumentId(){
+        return instrumentId;
+    }
+    
+    // This method converts notestrings like
+    // <<3E3P2E2GP2EPDP8C<8B>
+    // to an ArrayList of MidiNote objects 
+    // ( the notes attribute of this class )
+    public void loadNoteString(String notestring)
+    {
+        // convert the letters in the notestring to upper case
+        notestring = notestring.toUpperCase();
+        int duration = 0;
+        int pitch = 0;
+        int index = 0;
+        int octave = 0;
+        
+        for (int i = 0; i < notestring.length(); i++)
+        {
+            String curString = String.valueOf(notestring.charAt(i));
+
+            //here we are detecting characters that correspond to a note value
+            if(curString.equals("A") || curString.equals("B") || curString.equals("C") || curString.equals("D") || curString.equals("E") || curString.equals("F") || curString.equals("G"))
+            {
+                //Creating a new MidiNote with the pitch corressponding
+                //to the letter + 12 * octave and current duration, then adding it
+                //to the array list
+                if(!String.valueOf(notestring.charAt(i-1)).matches("[0-9]+"))
+                {
+                    duration = 1;
+                }
+
+                pitch = noteToPitch.get(curString.charAt(0)) + 12*octave;
+                MidiNote currentNote = new MidiNote( pitch, duration );
+                notes.add(currentNote);
+
+                //increase the index
+                index++;
+
+            }
+            //here we are detecting for characters that make a "Pause"
+            else if(curString.equals("P"))
+            {
+                if(i != 0 && !String.valueOf(notestring.charAt(i-1)).matches("[0-9]+"))
+                {
+                    duration = 1;
+                }
+                MidiNote currentNote = new MidiNote( pitch, duration );
+                currentNote.setSilent(true);
+                notes.add(currentNote);
+
+                //if there is a pause, increase the index
+                index++;
+            }
+            else if(curString.matches("[0-9]+"))
+            {
+                String trueDuration = "";
+                trueDuration += curString;
+                //using a while loop to see if
+                //the next char is also a numerical value
+                //will then adjust the duration accordingly.
+
+                int counter = i + 1;
+
+                while(String.valueOf(notestring.charAt(counter)).matches("[0-9]+"))
+                {
+                    trueDuration += String.valueOf(notestring.charAt(counter));
+                    counter++;
+                    i++;
+                }
+                duration = Integer.valueOf(trueDuration);
+            }
+            else if (curString.equals(">")) 
+            {
+                octave++;
+            }
+            else if (curString.equals("<")) 
+            {
+                octave--;     
+            }
+            else if (curString.equals("#"))
+            {
+                String corNote = String.valueOf(notestring.charAt(i-1));
+                pitch = noteToPitch.get(corNote.charAt(0)) + 12*octave + 1;
+                MidiNote currentNote = new MidiNote( pitch, duration );
+                notes.add(index,currentNote);
+                notes.remove(index-1);
+            }
+            else if (curString.equals("!")) 
+            {
+                String corNote = String.valueOf(notestring.charAt(i-1));
+                pitch = noteToPitch.get(corNote.charAt(0)) + 12*octave - 1;
+                MidiNote currentNote = new MidiNote( pitch, duration);
+                notes.add(index,currentNote);
+                notes.remove(index-1);
+            }
+        }
+    }
+
+    public void revert()
+    {
+        ArrayList<MidiNote> reversedTrack = new ArrayList<MidiNote>();     
+        for ( int i = notes.size() - 1; i >= 0; i--)
+        {
+            MidiNote oldNote = notes.get(i);
+            // create a newNote
+            MidiNote newNote = new MidiNote(oldNote.getPitch(), oldNote.getDuration());
+            
+            // check if the note was a pause
+            if(oldNote.isSilent()){
+                newNote.setSilent(true);
+            }
+             
+            // add the note to the new arraylist
+            reversedTrack.add(newNote);
+        }
+        notes = reversedTrack;
+    }
+
+    // This will only be called if you try to run this file directly
+    // You may use this to test your code.
+    public static void main(String[] args){
+        String notestring = "<<3E3P2E2GP2EPDP8C<8B>3E3P2E2GP2EPDP8C<8B>";
+        
+        int instrumentId = 0;
+        MidiTrack newTrack = new MidiTrack(instrumentId);
+        newTrack.loadNoteString(notestring);
+        
+        MusicInterpreter mi = new MusicInterpreter();
+        mi.setBPM(500);
+        
+        mi.loadSingleTrack(newTrack);
+        mi.play();
+        mi.close();
+
+        // Build the MidiTrack object
+        // Build a MusicInterpreter and set a playing speed
+        // Load the track and play it
+        // Close the player so that your program terminates
+    }
+}
+
+//NEXT FILE:
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.Scanner;
+
+public class PlaySong
+{
+    public static void main( String[] args)
+    {
+        MusicInterpreter myMusicPlayer = new MusicInterpreter();
+        // uncomment this line to print the available instruments
+        System.out.println(myMusicPlayer.availableInstruments());
+        Scanner input = new Scanner(System.in);
+        System.out.println("What is the name of the file that you want to play?");
+        String fileName = input.nextLine();
+
+        Song mySong = new Song();
+        String song_file_path = "./data/"+fileName;
+
+        //call loadSongFromFile, handling the Exceptions correctly
+        //load text file using the given song_filename
+        
+        try
+        {
+            mySong.loadSongFromFile(song_file_path);
+        }
+        catch (IOException e) 
+        {
+            System.out.println("The file doesn't exist!");
+        }
+
+        //Playing it:
+        MusicInterpreter mi = new MusicInterpreter();
+
+        //Loading the song & playing it
+        mi.loadSong(mySong);
+        mi.play();
+        //closing the player so the program terminates
+        mi.close();
+    }
+}
+
+//NEXT FILE:
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.FileReader;
+import java.util.ArrayList;
+
+
+public class Song
+{
+    String myName;
+    int myBeatsPerMinute;
+    String mySoundbank;
+    ArrayList<MidiTrack> myTracks;
+    
+    // The constructor of this class
+    public Song(){
+        myTracks = new ArrayList<MidiTrack>();
+        myBeatsPerMinute = 200;
+        mySoundbank = "";
+        myName = "Default_Name";
+    }
+
+    // GETTER METHODS
+
+    public String getName()
+    {
+       return myName;
+    }
+
+    public String getSoundbank()
+    {
+       return mySoundbank;
+    }
+    
+    public int getBPM()
+    {
+        return myBeatsPerMinute;
+    }
+
+    public ArrayList<MidiTrack> getTracks()
+    {
+        return myTracks;
+    }
+
+    public void loadSongFromFile(String file_path)throws IOException
+    {
+        BufferedReader br = new BufferedReader(new FileReader(file_path));
+        String line = br.readLine();
+        MidiTrack newTrack = new MidiTrack(0);
+        
+        while(line != null)
+        {
+            String value = line.split(" = ")[1];
+            String title = line.split(" = ")[0];
+
+            if(title.equals("name"))
+            {
+                this.myName = value;
+            }
+            else if(title.equals("bpm")) 
+            {
+                this.myBeatsPerMinute = Integer.valueOf(value);
+            }
+            else if(title.equals("soundbank")) 
+            {
+                this.mySoundbank = value;
+            }
+            else if(title.equals("track")) 
+            {
+                newTrack.loadNoteString(value);
+            }
+            else if(title.equals("instrument")) 
+            {
+                newTrack = new MidiTrack(Integer.valueOf(value));
+                myTracks.add(newTrack);
+            }
+
+            line = br.readLine();
+        }
+        br.close();
+
+    }
+
+    public void revert(){
+        for (int i = 0; i<myTracks.size(); i++){
+            myTracks.get(i).revert();
+        }
+    }
+}
+
+//NEXT FILE:
+
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.io.FileWriter;
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.Scanner;
+
+public class SongWriter{
+    private Hashtable<Integer,String> pitchToNote;
+    
+    // The constructor of this class
+    public SongWriter(){
+        this.initPitchToNoteDictionary();
+    }
+    
+    // This initialises the pitchToNote dictionary,
+    // which will be used by you to convert pitch numbers
+    // to note letters
+    public void initPitchToNoteDictionary(){
+        pitchToNote  = new Hashtable<Integer, String>();
+        pitchToNote.put(60, "C");
+        pitchToNote.put(61, "C#");
+        pitchToNote.put(62, "D");
+        pitchToNote.put(63, "D#");
+        pitchToNote.put(64, "E");
+        pitchToNote.put(65, "F");
+        pitchToNote.put(66, "F#");
+        pitchToNote.put(67, "G");
+        pitchToNote.put(68, "G#");
+        pitchToNote.put(69, "A");
+        pitchToNote.put(70, "A#");
+        pitchToNote.put(71, "B");
+    }
+
+    // This method converts a single MidiNote to its notestring representation
+    public String noteToString(MidiNote note)
+    {
+        String result = "";
+        String letter = "";
+
+        String duration = String.valueOf(note.getDuration());
+
+        result += duration;
+        int octave = note.getOctave();
+        int pitch = note.getPitch() - octave*12;
+
+        if (!note.isSilent()) 
+        {
+            letter = pitchToNote.get(pitch);
+        }
+        else
+        {
+            letter = "P";
+        }
+        result += letter;
+        return result;
+    }
+
+    // This method converts a MidiTrack to its notestring representation.
+    // You should use the noteToString method here
+    public  String trackToString(MidiTrack track)
+    {
+        ArrayList<MidiNote> notes = track.getNotes();
+        String result = "";
+        int previous_octave = 0;
+        MidiNote current_note;
+
+        for (int i = 0;i < notes.size() ;i++ ) 
+        {
+            current_note = notes.get(i);
+            
+            int current_octave = current_note.getOctave();
+
+            int octave = current_octave - previous_octave;
+
+            if (octave < 0) 
+            {
+                for (int b = 0;b > octave;b--) 
+                {
+                    result += "<";
+                }
+            }
+
+            if (octave > 0) 
+            {
+                for (int c = 0;c < octave;c++) 
+                {
+                    result += ">";
+                }
+            }
+            result += noteToString(current_note);
+            previous_octave = current_octave;
+        }
+        /* 
+        * A hint for octaves: if the octave of the previous MidiNote was -1
+        * and the octave of the current MidiNote is +3, we will have 
+        * to append ">>>>" to the result string.
+        */
+
+        return result;
+    }
+
+    public void writeToFile(Song s1, String file_path)throws IOException
+    {
+        FileWriter fw = new FileWriter(file_path);
+        BufferedWriter bw = new BufferedWriter(fw);
+
+        String name = s1.getName();
+        int bpm = s1.getBPM();
+        String soundbank = s1.getSoundbank();
+
+        
+        bw.write("bpm = " + bpm);
+        bw.newLine();
+        bw.write("name = " + name);
+        bw.newLine();
+        bw.write("soundbank = " + soundbank);
+        bw.newLine();
+        
+        for (int i = 0;i < s1.myTracks.size() ;i++ ) 
+        {             
+          MidiTrack current_track = s1.myTracks.get(i);
+          bw.write("instrument = "+Integer.toString(current_track.getInstrumentId()));
+          bw.newLine();
+          bw.write("track = " + trackToString(current_track));
+          bw.newLine();
+        }
+        bw.close();
+        fw.close();
+    }
+
+ 
+    public static void main( String[] args)
+    {
+        Scanner inputUser = new Scanner(System.in);
+        System.out.println("What is the name of the file that you want to revert?");
+        String fileName = inputUser.nextLine();
+
+        String song_file_path = "./data/"+fileName;
+        Song Song = new Song();
+        
+        try
+        {   
+            Song.loadSongFromFile(song_file_path);
+            Song.revert();
+            
+            SongWriter writer = new SongWriter();
+            writer.writeToFile(Song, "/Users/justin_smith100/Desktop/Assignment 5/assignment5 files/music/data/"+Song.getName()+"_reversed.txt");
+        }
+        catch(FileNotFoundException e)
+        {
+            System.out.println("The file doesn't exist");
+        }
+        catch(IOException e)
+        {
+            System.out.println("Could not open the file");
+        }
+        
+        // Load text file using the given song_filename, remember to 
+        // catch the appropriate Exceptions, print meaningful messages!
+        // e.g. if the file was not found, print "The file FILENAME_HERE was not found"
+
+        // call the revert method of the song object.
+        
+        // Create a SongWriter object here, and call its writeToFile( Song s, String file_location) method.
+
+    }
+}
