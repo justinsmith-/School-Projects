@@ -1,0 +1,334 @@
+package assignment1;
+
+import java.io.IOException;
+import java.util.Arrays;
+import org.jsoup.Jsoup;
+
+public class Assignment1
+{
+	/**
+	 * List of professors to search within the Faculty of Computer Science
+	 */
+	private static Professor[] PROFESSORS = {
+		new Professor("Martin Robillard", "http://www.cs.mcgill.ca/~martin"),
+		new Professor("Gregory Dudek", "http://www.cim.mcgill.ca/~dudek/dudek_bio.html"),
+		new Professor("Yang Cai", "http://www.cs.mcgill.ca/~cai/"),
+		new Professor("Brigitte Pientka", "http://www.cs.mcgill.ca/~bpientka/"),
+		new Professor("Laurie Hendren", "http://www.sable.mcgill.ca/~hendren/"),
+		new Professor("Wenbo He", "http://www.cs.mcgill.ca/~wenbohe/"),
+		new Professor("Luc Devroye", "http://luc.devroye.org/"),
+		new Professor("Claude Crepeau", "http://www.cs.mcgill.ca/~crepeau/"),
+		new Professor("David Avis", "http://cgm.cs.mcgill.ca/~avis/"),
+		new Professor("Godfried Toussaint", "http://www-cgrl.cs.mcgill.ca/~godfried/"),
+		new Professor("Monty Newborn", "http://www.cs.mcgill.ca/~newborn/"),
+		new Professor("Thomas Shultz", "http://www.tomshultz.net/"),
+		new Professor("Dirk Schlimm", "http://www.cs.mcgill.ca/~dirk/"),
+		new Professor("Daniel Levitin", "http://www.psych.mcgill.ca/faculty/levitin.html"),
+		new Professor("Guillaume Bourque", "http://genomequebec.mcgill.ca/gbourque/"),
+		new Professor("Ioannis Rekleitis", "http://www.cim.mcgill.ca/~yiannis/"),
+		new Professor("Joseph Vybihal", "http://www.cs.mcgill.ca/~jvybihal/"),
+		new Professor("Adrian Vetta", "http://www.math.mcgill.ca/~vetta/"),
+		new Professor("Jerome Waldispuhl", "http://www.cs.mcgill.ca/~jeromew/"),
+		new Professor("Hans Vangheluwe", "http://msdl.cs.mcgill.ca/people/hv"),
+		new Professor("Clark Verbrugge", "http://www.sable.mcgill.ca/~clump/"),
+		new Professor("Denis Therien", "http://www.cs.mcgill.ca/~denis/"),
+		new Professor("Carl Tropper", "http://www.cs.mcgill.ca/~carl/"),
+		new Professor("Derek Ruths", "http://www.ruthsresearch.org/")
+	};
+	
+	/**
+	 * A set of keywords describing an area of interest.
+	 */
+	private static String[] QUERY = {"algorithm","runtime","machine","learning"};
+	
+	/**
+	 * Words with low information content that we want to exclude from the similarity
+	 * measure.
+	 */
+	private static String[] STOP_WORDS = {"a", "an", "and", "at", "by", "for", "from", "he", "his", 
+		"in", "is", "it", "of", "on", "she", "the", "this", "to", "with" };
+	
+
+	public static void main(String[] args) throws IOException
+	{
+		Arrays.sort(QUERY);
+		String[] queryWithoutStopWords = removeStopWords(QUERY);
+		
+		String jaccardReturn = (bestMatchJaccard(queryWithoutStopWords));
+		String relReturn = (bestMatchRelHits(queryWithoutStopWords));
+		
+		
+		//Here we are dealing with the case where there are no results for Jaccard/Relhits
+		if(jaccardReturn.equals(""))
+		{
+			System.out.println("No best matches found using the Jaccard Index.");
+		}
+		else
+		{
+			System.out.println("Jaccard: " + jaccardReturn);
+		}
+		
+		if(relReturn.equals(""))
+		{
+			System.out.println("No best matches found using RelHits.");
+		}
+		else
+		{
+			System.out.println("Relhits: " + relReturn);
+		}
+	}
+	
+	/**
+     * Returns the name of the professor that is the best match according to
+     * the Jaccard similarity index, or the empty String if there are no such
+     * professors.
+	 */
+	public static String bestMatchJaccard(String[] pQuery) throws IOException
+	{
+		assert pQuery != null;
+		double highestJaccard = 0;
+		double x;
+		int bestMatch = -1;
+		String[] profNames = new String[PROFESSORS.length];
+		
+		for(int i = 0; i < PROFESSORS.length; i++)
+		{
+			profNames[i] = PROFESSORS[i].getName();
+			x = jaccardIndex(obtainWordsFromPage(PROFESSORS[i].getWebPageUrl()), pQuery);
+
+			if (x > highestJaccard)
+			{
+				bestMatch = i;
+				highestJaccard = x;
+			}
+		}
+		
+		if (bestMatch == -1)
+		{
+			return "";
+		}
+		else
+		{
+			return profNames[bestMatch];
+		}
+		
+	}
+	
+	/**
+	 * Returns the size of the intersection between pDocument and pQuery.
+	 */
+	public static int intersectionSize(String[] pDocument, String[] pQuery)
+	{
+		assert pDocument != null && pQuery != null;
+		
+		int intersection = 0;
+		
+		for(int i = 0; i < pQuery.length; i++)
+		{
+			for(int j = 0; j < pDocument.length; j++)
+			{
+				if(pQuery[i].equals(pDocument[j]))
+				{
+					intersection++;
+					j = pDocument.length - 1;
+				}
+			}
+		}
+		return intersection;
+	}
+	
+	/**
+     * Returns the name of the professor that is the best match according to
+     * the RelHits (relative hits) similarity index, computed as numberOfHits/size of the document.
+     * Returns the empty string if no professor is found.
+	 */
+	public static String bestMatchRelHits(String[] pQuery) throws IOException
+	{
+		assert pQuery != null;
+		
+		int numProfs = PROFESSORS.length;
+		double sizeDocument, numHits, relHits;
+		int positionBest = -1;
+		double bestRelHits = 0; 
+		
+		for (int i = 0; i < numProfs; i++){
+			String[] webpageWords = obtainWordsFromPage(PROFESSORS[i].getWebPageUrl());
+			sizeDocument = webpageWords.length;
+			numHits = numberOfHits(webpageWords, pQuery);
+			relHits = numHits/sizeDocument;
+			
+			if (relHits > bestRelHits)
+			{
+				positionBest = i;
+				bestRelHits = relHits;
+			}
+		}
+		
+		if (positionBest == -1)
+		{
+			return "";
+		}
+		else
+		{
+			return PROFESSORS[positionBest].getName();
+		}
+	}
+	
+	/**
+	 * Returns the Jaccard similarityIndex between pDocument and pQuery,
+	 * that is, |intersection(pDocument,pQuery)|/|union(pDocument,pQuery)|
+	 */
+	public static double jaccardIndex(String[] pDocument, String[] pQuery)
+	{
+		assert pDocument != null && pQuery != null;
+		
+		double intersection = (double)intersectionSize(pDocument, pQuery);
+		double union = (double)unionSize(pDocument, pQuery);
+		
+		return intersection/union;
+	}
+	
+	/**
+	 * Returns the size of the union between pDocument and pQuery. 
+	 * pDocument can contain duplicates, pQuery cannot.
+	 */
+	public static int unionSize(String[] pDocument, String[] pQuery)
+	{
+		assert pDocument != null && pQuery != null;
+		
+		int length1 = pDocument.length;
+		int length2 = pQuery.length;
+		int x = 0;
+		int counter = 0;
+		String[] newArray = new String[length1 + length2];
+		
+		for(int i = 0; i < length1; i++)
+		{
+			newArray[i] = pDocument[i];
+		}
+		
+		for(int i = length1; i < length1+length2; i++)
+		{
+			newArray[i] = pQuery[x];
+			x++;
+		}
+		
+		for(int i = 0; i < length1+length2-1;i++)
+		{
+			for(int j = i+1; j < length1 + length2; j++)
+			{
+				if(newArray[i].equals(newArray[j]))
+				{
+					counter++;
+					j = length1 + length2 - 1;
+				}
+			}
+		}
+		
+		return (length1 + length2 - counter);
+	}
+	
+	/**
+	 * Returns the number of times that any word in pQuery is found in pDocument
+	 * for any word, and including repetitions.
+	 */
+	public static int numberOfHits(String[] pDocument, String[] pQuery)
+	{
+		assert pDocument != null && pQuery != null;
+		
+		int hits = 0;
+		
+		for(int i = 0; i < pQuery.length; i++)
+		{
+			for(int j = 0; j < pDocument.length; j++)
+			{
+				if(pDocument[j].equals(pQuery[i]))
+				{
+					hits++;
+				}
+			}
+		}
+		return hits;
+	}
+	
+	/**
+	 * Returns a new array of words that contains all the words in pKeyWords
+	 * that are not in the array of stop words.
+	 */
+	public static String[] removeStopWords(String[] pKeyWords)
+	{
+		assert pKeyWords != null;
+		
+		int numStopWords = 0;
+		for (int i = 0; i < pKeyWords.length; i++){
+			for (int j = 0; j < STOP_WORDS.length; j++){
+				if (pKeyWords[i].equals(STOP_WORDS[j])){
+					numStopWords++;
+					pKeyWords[i] = "0";
+					j = STOP_WORDS.length - 1;
+				}
+			}
+			
+		}
+		String[] newArray = new String[pKeyWords.length - numStopWords];
+		int j = 0;
+		for (int i = 0; i < newArray.length; i++){
+			if (!pKeyWords[i].equals("0"))
+			{
+				newArray[j] = pKeyWords[i];
+				j++;
+			}
+		}
+		
+		return newArray;		
+	}
+	
+	/**
+	 * Obtains all the words in a page (including duplicates), but excluding punctuation and
+	 * extraneous whitespaces and tabs.
+	 * @throws IOException if we can't download the page (e.g., you're off-line)
+	 */
+	public static String[] obtainWordsFromPage(String pUrl) throws IOException
+	{
+		// The statement below connects to the webpage, parses it,
+		// and return the text content into inputString. Consider
+		// that this is all the text of the webpage that you need.
+		String inputString = Jsoup.connect(pUrl).get().text();
+        
+		// Remove punctuation
+		// Aggregate multiple whitespaces into one
+		// Turn into lower case
+		// Split into different words.
+		String[] words = inputString.replaceAll("[^a-zA-Z ]", "").toLowerCase().split("\\s+");
+		
+		// Sort in alphabetical order
+		Arrays.sort(words);
+        return words;	
+	}
+}
+
+/**
+ * This simple class just keeps the information about
+ * a professor together.
+ */
+class Professor
+{
+	private String aName;
+	private String aWebPageUrl; 
+	
+	public Professor(String pName, String pWebpageUrl)
+	{
+		aName = pName;
+		aWebPageUrl = pWebpageUrl;
+	}
+	
+	public String getName()
+	{
+		return aName;
+	}
+	
+	public String getWebPageUrl()
+	{
+		return aWebPageUrl;
+	}
+}
