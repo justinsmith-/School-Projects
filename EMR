@@ -1,0 +1,1398 @@
+package assignment2;
+import java.util.Scanner;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Scanner;
+
+import assignment2.Patient.Insurance;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+
+/* A basic command line interface for an Electronic Medical Record System.
+ * 
+ * 		1.	Add a new patient to the EMR system
+ *  	2.	Add a new Doctor to the EMR system
+ *  	3.	Record new patient visit to the department
+ *  	4.	Edit patient information
+ *  	5.	Display list of all Patient IDs
+ *  	6.	Display list of all Doctor IDs
+ *  	7.	Print a Doctor's record
+ *  	8.	Print a Patient's record
+ *  	9.	Exit and save modifications
+ * 	
+ */
+
+
+public class EMR
+{
+	private String aDoctorFilePath;
+	private String aPatientFilePath;
+	private String aVisitsFilePath;
+	private ArrayList<Doctor> doctorList = new ArrayList<Doctor>();
+	private ArrayList<Patient> patientList = new ArrayList<Patient>();
+	
+	/**
+     * Used to invoke the EMR command line interface. You only need to change
+     * the 3 filepaths.
+	 */
+	public static void main(String[] args) throws IOException
+	{
+		EMR system = new EMR("./Data/Doctors.csv", "./Data/Patients.csv", "./Data/Visits.csv");
+		
+		system.displayMenu();
+	}
+
+	public EMR(String pDoctorFilePath, String pPatientFilePath, String pVisitsFilePath){
+		this.aDoctorFilePath = pDoctorFilePath;
+		this.aPatientFilePath = pPatientFilePath;
+		this.aVisitsFilePath = pVisitsFilePath;
+		
+		importDoctorsInfo(this.aDoctorFilePath);
+		importPatientInfo(this.aPatientFilePath);
+		importVisitData(this.aVisitsFilePath);
+		
+		sortDoctors(this.doctorList);
+		sortPatients(this.patientList);
+	}
+
+	/**
+	 * This method should sort the doctorList in time O(n^2). It should sort the Doctors
+	 * based on their ID 
+	 */
+	private void sortDoctors(ArrayList<Doctor> docs)
+	{			
+		int length = docs.size();
+		Doctor x;
+		boolean swapped = true;
+		
+		
+		//This is a basic use of the Bubble Sort algorithm.
+		while(swapped == true)
+		{
+			swapped = false;
+			for (int i = 1; i < length; i++)
+			{
+				if(docs.get(i-1).getID() > docs.get(i).getID())
+				{
+					x = docs.get(i-1);
+					docs.set(i-1, docs.get(i));
+					docs.set(i, x);
+					swapped = true;
+				}
+			}
+		}
+	}
+	
+	private void mergeSort(ArrayList<Patient> patients)
+	{
+		//only execute the following block if the list has more than one element, 
+		//otherwise it is already sorted
+		if(patients.size() > 1)
+		{
+			int middle = patients.size()/2; 
+			
+			ArrayList<Patient> left = new ArrayList<Patient>();
+			ArrayList<Patient> right = new ArrayList<Patient>();
+			
+			//split up into two new arrayLists
+			for(int i = 0; i < middle; i++) 
+			{
+				left.add(patients.get(i));
+			}
+			
+			for(int j = middle; j < patients.size(); j++)
+			{
+				right.add(patients.get(j));
+			}
+			
+			//mergeSort each of these two new ArrayLists
+			mergeSort(left);
+			mergeSort(right);
+			
+			//merge the two sorted arrayLists
+			merge(left, right, patients);
+		}			
+	}
+	
+	private void merge(ArrayList<Patient> left, ArrayList<Patient> right, ArrayList<Patient> patients){
+		int lengthL = left.size();
+		int lengthR = right.size();
+		int totalLength = patients.size();
+		
+		
+		int pos;
+		int i = 0;
+		int j = 0;
+			
+		for(pos = 0; pos < totalLength; pos++){
+			
+			/* if all elements in the right arrayList have been added to the resulting arrayList
+			then add the next element in the left arrayList into the resulting array List*/
+			if (j==lengthR){
+				patients.set(pos, left.get(i));
+				i++;
+				
+			//opposite case of the first 'if' 	
+			}else if(i==lengthL){
+				patients.set(pos,right.get(j));
+				j++;
+			
+			//if neither of the two smaller arrayLists have had all of their elements added to the result
+			//then compare the first remaining elements in both, smaller element gets added to resulting arrayList
+			}else{
+				if(Long.parseLong(left.get(i).getHospitalID()) > Long.parseLong(right.get(j).getHospitalID())){
+					patients.set(pos, right.get(j));					
+					j++;
+				}
+					
+				else{
+					patients.set(pos, left.get(i));
+					i++;
+				}
+					
+			}
+		}
+			
+	}
+	
+	/**
+	 * This method should sort the patientList in time O(n log n). It should sort the 
+	 * patients based on the hospitalID
+	 */
+	private void sortPatients(ArrayList<Patient> patients)
+	{
+		mergeSort(patients);	
+	}
+	
+	/**
+	 * This method adds takes in the path of the Doctor sheet csv file and imports
+	 * all doctors data into the doctorList ArrayList
+	 */
+	private ArrayList<Doctor> importDoctorsInfo(String doctorFilePath)
+	{
+		BufferedReader br = null;
+		String currentLine = "";
+		String csvSplitBy = ",";
+		
+		try
+		{
+			br = new BufferedReader(new FileReader(doctorFilePath));
+			//setting the currentLine to the first line of the CSV file
+			//we don't want to add this line to the Doctor list because it simply
+			//just says firstname, lastname, height, etc
+			currentLine = br.readLine();
+			
+			
+			/**While the BufferReader hasn't hit the end of the Doctors CSV file
+			 *it will pull all of the doctors info out of the file & place it into the Doctor List
+			 */
+			while((currentLine = br.readLine()) != null)
+			{
+				String docInfo[] = currentLine.split(csvSplitBy);
+				String fName = docInfo[0];
+				String lName = docInfo[1];
+				String spec = docInfo[2];
+				long ID = Long.parseLong(docInfo[3]);
+					
+				doctorList.add(new Doctor(fName, lName, spec, ID));	
+			}
+			
+			//closing the buffered reader:												
+			if (br != null)
+			{
+				try
+				{
+					br.close();
+				}
+				catch(IOException e)
+				{
+					e.printStackTrace();
+				}
+			}
+		}
+		//
+		catch(FileNotFoundException e)
+		{
+			System.out.println("No file found!");
+		}
+		catch(IOException e)
+		{
+			System.out.println("Error while opening the BufferedReader.");
+		}
+		
+		return doctorList;		
+	}
+	
+	/**
+	 * This method adds takes in the path of the Patient sheet csv file and imports
+	 * all Patient data into the patientList ArrayList
+	 */
+	private ArrayList<Patient> importPatientInfo(String patientFilePath)
+	{
+		BufferedReader br = null;
+		String csvSplitBy = ",";
+		String line = "";
+		
+		//Now we are doing the same thing for the Patient's CSV file, pulling all the data from the CSV file
+		//and placing it into the patient arraylist
+		try
+		{
+			br = new BufferedReader(new FileReader(patientFilePath));
+			
+			//Allows us to skip the first line of the file (where no actual info is displayed)
+			line = br.readLine();
+			
+			//Adding the info from the csv file into the patient list until the BR has hit the end of the file
+			while ((line = br.readLine()) != null)
+			{	
+				String[] patientInfo = line.split(csvSplitBy);
+				
+
+				String fName = patientInfo[0];
+				String lName = patientInfo[1];
+				double height = Double.parseDouble(patientInfo[2]);
+				Patient.Insurance insur;
+					
+				if(patientInfo[3].equals("RAMQ"))
+				{
+					insur = Patient.Insurance.RAMQ;
+				}
+				else if(patientInfo[3].equals("Private"))
+				{
+					insur = Patient.Insurance.Private;
+				}
+				else
+				{
+					insur = Patient.Insurance.NONE;
+				}
+					
+				String gender = patientInfo[4];
+				long ID = Long.parseLong(patientInfo[5]);
+				String dateOfBirth = patientInfo[6];
+										
+				patientList.add(new Patient(fName, lName, height, insur, gender, ID, dateOfBirth));	
+			}
+			//attempting to close the buffered reader
+			if (br != null)
+			{
+				try
+				{
+					br.close();
+				}
+				catch(IOException e)
+				{
+					e.printStackTrace();
+				}
+			}
+		}
+		catch(FileNotFoundException e)
+		{
+			System.out.println("No file found!");
+		}
+		catch(IOException e)
+		{
+			System.out.println("IOException");
+		}
+		
+		
+		return patientList;
+	}
+	
+	/**
+	 * This method adds takes in the path of the Visit sheet csv file and imports
+	 * every Visit data. It appends Visit objects to their respective Patient
+	 */
+	private void importVisitData(String visitsFilePath)
+	{
+		BufferedReader br = null;
+		String curLine = "";
+		String csvSplitBy = ",";
+		Doctor doctor=null;
+		Patient patient=null;
+		
+		try
+		{
+			br = new BufferedReader(new FileReader(visitsFilePath));
+			
+			//Skipping the first line of the CSV file.
+			curLine = br.readLine();
+			//Adding the visit info from the Visits.csv file into the visit array list
+			while ((curLine = br.readLine()) != null)
+			{	
+				String[] visitInfo = curLine.split(csvSplitBy);
+					
+				long hospID = Long.parseLong(visitInfo[0]);
+				long docID = Long.parseLong(visitInfo[1]);
+				String dateOfVisit = visitInfo[2];
+				String docNote = visitInfo[3];
+				
+				int numDocs=doctorList.size();
+				for(int i = 0; i < numDocs; i++)
+				{
+					if(docID == doctorList.get(i).getID()){
+						doctor = doctorList.get(i);
+						i=numDocs-1;
+					}
+				}
+			
+				int numPatients=patientList.size();
+				for(int j = 0; j < numPatients; j++){
+					if(hospID == Long.parseLong(patientList.get(j).getHospitalID())){
+						patient = patientList.get(j);
+						j=numPatients-1;
+					}			
+				}
+				
+				Visit newVisit = new Visit(doctor, patient, dateOfVisit, docNote);
+				if (numPatients != 0){
+					patient.aVisitList.add(newVisit);
+				}
+			}
+			//attempting to close the visits file							
+			if (br != null)
+			{
+				try
+				{
+					br.close();
+				}
+				catch(IOException e)
+				{
+					e.printStackTrace();
+				}
+			}
+		}
+		catch(FileNotFoundException e)
+		{
+			System.out.println("No file found!");
+		}
+		catch(IOException e)
+		{
+			System.out.println("IOException");
+		}
+		catch(Exception e){
+			System.out.println("No visit data.");
+		}
+	}
+	
+	/**
+	 * This method uses an infinite loop to simulate the interface of the EMR system.
+	 * A user should be able to select 10 options. The loop terminates when a user 
+	 * chooses option 10: EXIT. You do not have to modify this code.
+	 */
+	
+	public void displayMenu(){
+		System.out.println();
+		System.out.println("****************************************************************");
+		System.out.println();
+		System.out.println("Welcome to The Royal Victoria EMR Interface V1.0");
+		System.out.println("");
+		System.out.println("This system will allow you to access and modify the health records of the hospital");
+		System.out.println();
+		System.out.println("****************************************************************");
+		System.out.println();
+		
+		Scanner scan = new Scanner(System.in);
+		boolean exit = false;
+		while(!exit){
+			
+			System.out.println("Please select one of the following options and click enter:");
+			System.out.println("   (1) Add a new patient to the EMR system\n" +
+								"   (2) Add a new Doctor to the EMR system\n" +
+								"   (3) Record new patient visit to the department\n" +
+								"   (4) Edit patient information\n" +
+								"   (5) Display list of all Patient IDs\n" +
+								"   (6) Display list of all Doctor IDs\n" +
+								"   (7) Print a Doctor's record\n" +
+								"   (8) Print a Patient's record\n" +
+								"   (9) Exit and save modifications\n");
+			System.out.print("   ENTER YOUR SELECTION HERE: ");
+			
+			int choice = 0;
+			try{
+				choice = Integer.parseInt(scan.next());
+			}
+			catch(Exception e){
+				;
+			}
+			
+			System.out.println("\n");
+			
+			switch(choice){
+				case 1: 
+					option1();
+					break;
+				case 2: 
+					option2();
+					break;
+				case 3: 
+					option3();
+					break;
+				case 4: 
+					option4();
+					break;
+				case 5: 
+					option5();
+					break;
+				case 6: 
+					option6();
+					break;
+				case 7: 
+					option8();
+					break;
+				case 8: 
+					option7();
+					break;
+				case 9: 
+					option9();
+					break;	
+				default:
+					System.out.println("   *** ERROR: You entered an invalid input, please try again ***\n");
+					break;
+			}
+		}
+	}
+	
+	/**
+	 * This method adds a patient to the end of the patientList ArrayList. It 
+	 * should ask the user to provide all the input to create a Patient object. The 
+	 * user should not be able to enter empty values. The input should be supplied
+	 * to the addPatient method
+	 */
+	private void option1(){
+		String firstname = null;
+		String lastname = null;
+		double height = 0;
+		String Gender = null;
+		Insurance type = null;
+		Long hospitalID = null;
+		String DOB = null;
+		
+		try{
+			//the following block gets the new patient's information from the user
+			int temp;
+			Scanner reader=new Scanner(System.in);
+			System.out.println("Please provide the following info for the new patient.");
+			System.out.print("First name: ");
+			firstname=reader.next();
+			System.out.print("Last name: ");
+			lastname=reader.next();
+			System.out.print("Height: ");
+			height=reader.nextDouble();
+			
+			if(height <= 0)
+			{
+				System.out.println("Invalid input, please enter a height greater than 0");
+				option1();
+			}
+			
+			System.out.print("Gender (enter 1 for Male, 2 for Female): ");
+			temp=reader.nextInt();
+			if (temp==1){
+				Gender="Male";
+			}else if (temp==2){
+				Gender="Female";
+			}else{
+				System.out.println("\nInvalid option. Please try again.");
+				option1();
+			}
+			
+			System.out.print("Insurance type (enter 1 for RAMQ, 2 for Private, 3 for None): ");
+			temp=reader.nextInt();
+			if (temp==1){
+				type = Insurance.RAMQ;
+			}else if(temp==2){
+				type = Insurance.Private;
+			}else if (temp==3){
+				type = Insurance.NONE;
+			}else{
+				System.out.println("Invalid option. Setting insurance type to None.");
+			}
+			
+			System.out.print("Hospital ID: ");
+			hospitalID=reader.nextLong();
+			
+			if(hospitalID < 1)
+			{
+				System.out.println("Invalid input, please try again.");
+				option1();
+			}
+			
+			int month, day, year;
+			System.out.println("Date of Birth.");
+			System.out.print("   Month (MM): ");
+			month=reader.nextInt();
+			
+			if(month > 12 || month < 1)
+			{
+				System.out.println("Invalid input, please enter a month from 1 to 12");
+				option1();
+			}
+			
+			System.out.print("   Day (DD): ");
+			day=reader.nextInt();
+			
+			if(day > 31 || day < 1)
+			{
+				System.out.println("Invalid input, please enter a day from 1 to 31");
+				option1();
+			}
+			
+			System.out.print("   Year (YYYY): ");
+			year=reader.nextInt();
+			
+			if(year > 2015 || year < 1)
+			{
+				System.out.println("Invalid year, cannot be born after the current date or in a negative year. Please enter another year.");
+				option1();
+			}
+			
+			DOB=month+"/"+day+"/"+year;
+			System.out.println();
+			
+			//call addPatient method to add the new patient to the patientList
+			addPatient(firstname, lastname, height, Gender, type, hospitalID, DOB);
+		
+		//catches any invalid input that is entered (i.e string when a number is expected)
+		}catch(Exception e){
+			System.out.println("\nERROR: Invalid input\nPlease try again.\n");	
+		}
+	}
+	
+	/**
+	 * This method adds a patient object to the end of the patientList ArrayList. 
+	 */
+	private void addPatient(String firstname, String lastname, double height, String Gender, Insurance type, Long hospitalID, String DOB){
+		Patient newPatient=new Patient(firstname, lastname, height, type, Gender, hospitalID, DOB);
+		patientList.add(newPatient);
+	}
+	
+	
+	/**
+	 * This method adds a doctor to the end of the doctorList ArrayList. It 
+	 * should ask the user to provide all the input to create a Doctor object. The 
+	 * user should not be able to enter empty values.
+	 */
+	private void option2(){
+		String firstname = null;
+		String lastname = null;
+		String specialty = null;
+		Long doctor_id = null;
+		
+		try{
+			//get the information for the new Doctor from the user
+			
+			Scanner reader=new Scanner(System.in);
+			System.out.println("Please provide the following info for the new doctor.");
+			System.out.print("First name: ");
+			firstname=reader.next();
+			System.out.print("Last name: ");
+			lastname=reader.next();
+			System.out.print("Specialty: ");
+			specialty=reader.next();
+			System.out.print("Doctor ID: ");
+			doctor_id=reader.nextLong();
+			
+			if(doctor_id <= 0)
+			{
+				System.out.println("Invalid input, please enter an ID greater than 0.");
+				option2();
+			}
+			
+			//call addDoctor method to add the new doctor to the doctorList
+			addDoctor(firstname, lastname, specialty, doctor_id);
+			System.out.println();
+		
+		//catches any invalid inputs. Executes the code for option 2 again if an invalid input is entered
+		}catch (Exception e){
+			System.out.println("\nERROR: Invalid Input.\nPlease try again.\n");
+		}
+	}
+	
+	/**
+	 * This method adds a doctor to the end of the doctorList ArrayList.
+	 */
+	private void addDoctor(String firstname, String lastname, String specialty, Long docID){
+		Doctor newDoc=new Doctor(firstname,lastname,specialty,docID);
+		doctorList.add(newDoc);
+	}
+	
+	/**
+	 * This method creates a Visit record. 
+	 */
+	private void option3(){
+		Long doctorID = null;
+		Long patientID = null;
+		String date = null;
+		String note = null;
+		
+		try{
+			//get the new visit info from the user
+			
+			Scanner reader = new Scanner(System.in);
+			System.out.println("Please enter the following information in regards to the patient's visit.");
+			System.out.print("Doctor ID: ");
+			doctorID=reader.nextLong();
+			System.out.print("Patient ID: ");
+			patientID=reader.nextLong();
+			
+			int month, day, year;
+			System.out.println("Date of Visit.");
+			System.out.print("   Month (MM): ");
+			month=reader.nextInt();
+			
+			if(month <= 0 || month > 12)
+			{
+				System.out.println("Invalid input. Please enter a month from 1 to 12.");
+				option3();
+			}
+			
+			System.out.print("   Day (DD): ");
+			day=reader.nextInt();
+			
+			if(day <= 0 || day > 31)
+			{
+				System.out.println("Invalid input. Please enter a day from 1 to 31.");
+				option3();
+			}
+			System.out.print("   Year (YYYY): ");
+			year=reader.nextInt();
+			
+			if(year <= 0 || year > 2015)
+			{
+				System.out.println("Invalid input.");
+				option3();
+			}
+			
+			date=month+"/"+day+"/"+year;
+			reader.nextLine();
+			
+			System.out.print("Note: ");
+			note=reader.nextLine();
+			
+			
+			//Use above variables to find which Doctor the patient saw
+			Doctor d = null;
+			Patient p = null;
+			int numDocs=doctorList.size();
+			int numPatients=patientList.size();
+			
+			boolean docExists=false;
+			for (int i=0; i<numDocs; i++){
+				Doctor temp=doctorList.get(i);
+				if (doctorID.equals(temp.getID())){
+					d=temp;
+					docExists=true;
+				}
+			}
+						
+			boolean patientExists=false;
+			for (int j=0; j<numPatients; j++){
+				Patient temporary=patientList.get(j);
+				if (patientID.equals(temporary.getHospitalID())){
+					p=temporary;
+					patientExists=true;
+				}
+			}
+			
+			if (!docExists || !patientExists){
+				if (!docExists && !patientExists){
+					System.out.println("\nNo doctor and patient exists with the given IDs. Please try again.\n");
+				}else if(!docExists && patientExists){
+					System.out.println("\nNo doctor exists with the given ID. Please try again.\n");
+				}else{
+					System.out.println("\nNo patient exists with the given ID. Please try again.\n");
+				}
+				
+			}else{
+				//call recordPatientVisit method to add the new visit to the patient's VisitList
+				System.out.println();
+				recordPatientVisit(d, p, date, note);
+			}
+			
+		
+		//catches invalid input and calls the option 3 code again 
+		}catch (Exception e){
+			System.out.println("\nERROR: Invalid Input.\nPlease try again.\n");
+		}
+	}
+	
+	/**
+	 * This method creates a Visit record. It adds the Visit to a Patient object.
+	 */
+	private void recordPatientVisit(Doctor doctor, Patient patient, String date, String note){		
+		Visit newPatientVisit=new Visit(doctor, patient, date, note);
+		
+		//each patient object has a unique VisitList. Add the new visit to the corresponding patient's VisitList
+		//different from one patientList for all patients, or one doctorList for all doctors
+		patient.aVisitList.add(newPatientVisit);		
+		
+	}
+	
+	/**
+	 * This method edits a Patient record. Only the firstname, lastname, height,
+	 * Insurance type, and date of birth could be changed. You should ask the user to supply the input.
+	 */
+	private void option4(){
+		String newFirstname = null;
+		String newLastname = null;
+		double newHeight = 0;
+		Insurance newType = null;
+		String newDOB = null;
+		Long patientID=null;
+		
+		try{
+			//ask the user for the info of the patient whose information is to be edited 
+			//check if patient with this ID exists
+			Scanner reader=new Scanner(System.in);
+			System.out.println("Please enter the ID for the patient whose information is to be edited: ");
+			patientID=reader.nextLong();
+			boolean patientExists=false;
+			int numPatients=patientList.size();
+			for (int i=0; i<numPatients; i++){
+				if (patientID.equals(patientList.get(i).getHospitalID())){
+					patientExists=true;
+				}
+			}
+			
+			if (patientExists){
+				System.out.println("Enter the updated information for the patient.");
+				System.out.print("First name: ");
+				newFirstname=reader.next();
+				System.out.print("Last name: ");
+				newLastname=reader.next();
+				System.out.print("Height: ");
+				newHeight=reader.nextDouble();
+				
+				if(newHeight <= 0)
+				{
+					System.out.println("Invalid input, please try again.");
+					option4();
+				}
+				
+				System.out.print("Insurance type (enter 1 for RAMQ, 2 for Private, 3 for None): ");
+				int temp=reader.nextInt();
+				if (temp==1){
+					newType = Insurance.RAMQ;
+				}else if(temp==2){
+					newType = Insurance.Private;
+				}else if (temp==3){
+					newType = Insurance.NONE;
+				}else{
+					System.out.println("Invalid option. Setting insurance type to None.");
+				}
+				
+				int month, day, year;
+				System.out.println("Date of Birth.");
+				System.out.print("   Month (MM): ");
+				month=reader.nextInt();
+				
+				if(month <= 0 || month > 12)
+				{
+					System.out.println("Invalid input, please enter a month between 1 and 12.");
+					option4();
+				}
+				
+				System.out.print("   Day (DD): ");
+				day=reader.nextInt();
+				
+				if(day <= 0 || day > 31)
+				{
+					System.out.println("Invalid input, please enter a day between 1 and 31.");
+					option4();
+				}
+				
+				System.out.print("   Year (YYYY): ");
+				year=reader.nextInt();
+				
+				if(year <= 0 || year > 2015)
+				{
+					System.out.println("Invalid input.");
+					option4();
+				}
+				
+				newDOB=month+"/"+day+"/"+year;
+				
+				editPatient(newFirstname, newLastname, newHeight, newType, newDOB, patientID);
+				System.out.println();
+			}else{
+				System.out.println("\nNo patient exists in our records with the given ID.\n");
+			}
+		
+		//catches invalid input and executes option3 code again
+		}catch (Exception e){
+			System.out.println("\nERROR: Invalid Input.\nPlease try again.\n");
+		}
+	}
+	
+	/**
+	 * This method edits a Patient record. Only the firstname, lastname, height, 
+	 * Insurance type, address could be changed, and date of birth. 
+	 */
+	private void editPatient(String firstname, String lastname, double height, Insurance type, String DOB, Long ID){
+		
+		int numPatients=patientList.size();
+		int index=-1;
+		
+		//find the patient to be edited
+		for (int i=0; i<numPatients;i++){
+			Patient temp=patientList.get(i);
+			if (ID.equals(temp.getHospitalID())){
+				index=i;
+				i=numPatients-1;
+			}
+		}
+		
+		//if no patient is found (index hasn't been changed)
+		if (index==-1){
+			System.out.println("No patient exists with ID number "+ID+".");
+		
+		//if patient exists, set that patient's info to user provided information
+		}else{
+			patientList.get(index).setFirstName(firstname);
+			patientList.get(index).setLastName(lastname);
+			patientList.get(index).setHeight(height);
+			patientList.get(index).setInsurance(type);
+			patientList.get(index).setDateOfBirth(DOB);
+		}
+	}
+	
+	/**
+	 * This method should first sort the patientList and then print to screen 
+	 * one Patient at a time by calling the displayPatients() method
+	 */
+	private void option5(){
+		//sort the patientList and then print it
+		
+		sortPatients(this.patientList);
+		displayPatients(this.patientList);
+	}
+	
+	/**
+	 * This method should print to screen 
+	 * one Patient at a time by calling the Patient toString() method
+	 */
+	private void displayPatients(ArrayList<Patient> patients){
+		int numPatients=patients.size();
+		
+		//if no patients exist
+		if (numPatients==0){
+			System.out.println("No patients currently in the system.\n");
+		}
+		
+		//Otherwise output each patient's info using the 'toString' method
+		for (int i=0; i<numPatients; i++){
+			System.out.println(patients.get(i).toString());
+		}
+	}
+	
+	/**
+	 * This method should first sort the doctorList and then print to screen 
+	 * one Doctor at a time by calling the displayDoctors() method
+	 */
+	private void option6(){
+		//sort and print the doctorList
+		
+		sortDoctors(this.doctorList);
+		displayDoctors(this.doctorList);
+	}
+
+	/**
+	 * This method should first sort the doctorList and then print to screen 
+	 * one Doctor at a time by calling the Doctor toString() method
+	 */
+	private void displayDoctors(ArrayList<Doctor> docs){
+		int numDoctors=docs.size();
+		
+		//if not doctors in the doctorList
+		if (numDoctors == 0){
+			System.out.println("No doctors currently in the system.\n");
+		}
+		
+		//otherwise print each doctor's info 
+		for (int j=0; j<numDoctors; j++){
+			System.out.println(docs.get(j).toString());
+			System.out.println();
+		}
+	}
+
+	
+	/**
+	 * This method should ask the user to supply an id of the patient they want info about
+	 */
+	private void option7(){
+		Long patientID = null;
+		
+		try{
+			
+			//get the patient ID the user wants info about 
+			Scanner reader=new Scanner(System.in);
+			System.out.print("What is the patient's Patient ID: ");
+			patientID=reader.nextLong();
+			System.out.println();
+			printPatientRecord(patientID);
+			System.out.println();
+		
+		//catch an invalid entered ID (i.e. a string is entered)
+		}catch (Exception e){
+			System.out.println("ERROR: Invalid Patient ID.\n Please try again.\n");
+		}
+		
+	}
+	
+	/**
+	 * This method should call the toString method of a specific Patient. It should
+	 * also list all the patient's Visit objects sorted in order by date (earliest first). For
+	 * every Visit, the doctor's firstname, lastname and id should be printed as well.
+	 */
+	private void printPatientRecord(Long patientID){
+		if (!patientList.isEmpty()){
+			boolean patientExists=false;
+			
+			for (int i=0; i<patientList.size(); i++){
+				Patient temp=patientList.get(i);
+				
+				//find the patient corresponding to the user specified ID
+				if (patientID.equals(temp.getHospitalID())){
+					
+					//print said patient's information
+					patientExists=true;
+					System.out.println("The patient's information is:");
+					System.out.println(temp.toString());
+					System.out.println("Past visits:");
+					
+					//print the patient's visit history using they corresponding VisitList
+					int numVisits=0;
+					for (int j=0; j<temp.aVisitList.size(); j++){
+						Visit patientVisit=temp.aVisitList.get(j);
+						Doctor docVisit=patientVisit.getDoctor();
+						System.out.println("  "+patientVisit.getDate()+" - "+"Doctor: "+docVisit.getFirstName()+','+docVisit.getLastName()+','+docVisit.getID());
+						numVisits++;
+					}
+					if (numVisits==0){
+						System.out.println("No past visits.\n");
+					}
+				}
+			}
+			
+			//error message if no match for the specified patient ID
+			if (!patientExists){
+				System.out.println("There is no patient in our records with this ID.");
+			}
+		}else{
+			System.out.println("ERROR: No patient exists with the given ID.\n");
+		}
+	}
+	
+	/**
+	 * This method should ask the user to supply an id of a doctor they want info about
+	 */
+	private void option8(){
+		try{
+			//get the ID of the doctor the user wants info about
+			Long doc_id = null;
+			Scanner reader=new Scanner(System.in);
+			System.out.print("What is the doctor's ID?: ");
+			doc_id=reader.nextLong();
+			
+			Doctor d = findDoctor(doc_id);
+			System.out.println();
+			printDoctorRecord(d);
+			System.out.println();
+		
+		//catch any invalid input (i.e. a string is entered)
+		}catch (Exception e){
+			System.out.println("\nERROR: Invalid Input.\nPlease try again.\n");
+		}
+	}
+	
+	/**
+	 * Searches in O(log n) time the doctorList to find the correct doctor with doctorID = id
+	 * @param id
+	 * @return
+	 */
+	private Doctor findDoctor(Long id){
+		if (doctorList.isEmpty()){
+			return null;
+		}else{
+			//sort the doctorList first so binary search can be used
+			sortDoctors(doctorList);
+			
+			//use binary search to find doctor in O(logn)
+			int left=0;
+			int right=doctorList.size();
+			while(right>left+1){
+				int mid=(int)Math.ceil((left+right)/2);
+				if(doctorList.get(mid).getID() > id){
+					right=mid;
+				}else{
+					left=mid;
+				}
+			}
+			if(doctorList.get(left).getID().equals(id)){
+				return doctorList.get(left);
+			}else{
+				return null;
+			}
+		}
+	}
+	
+	
+	/**
+	 * This method should call the toString() method of a specific Doctor. It should
+	 * also find and list all the patients that a Doctor has seen by calling their toString()
+	 * method as well. It should also list the date that the doctor saw a particular patient
+	 */
+	private void printDoctorRecord(Doctor d){
+		
+		//if no doctor exists with the user specified ID print an error statement		
+		if (d==null){
+			System.out.println("\nERROR: No doctor exists in our records with that ID.\n");
+		
+		//otherwise print doctor info and 
+		//check all patient's visitLists to see if they had a visit with the doctor
+		}else{
+			String x=d.toString();
+			System.out.println("The doctor's information is: \n"+x+"\n");
+			System.out.println("Patients seen:");
+			int size=patientList.size();
+			int numPatientsSeen=0;
+			for (int i=0; i<size; i++){
+				Patient temp=patientList.get(i);
+				int size2=temp.aVisitList.size();
+				for (int j=0; j<size2; j++){
+					Visit temporary=temp.aVisitList.get(j);
+					if (d.getID().equals(temporary.getDoctor().getID())){
+						numPatientsSeen++;
+						x=temp.toString();
+						System.out.println(x+" seen on "+temporary.getDate()+".");
+					}
+				}
+			}
+			
+			//if the doctor has not seen any patients
+			if (numPatientsSeen==0){
+				System.out.println("No patients seen.\n");
+			}
+		}
+	}
+	
+	/**
+	 * This method should be invoked from the command line interface if the user
+	 * would like to quit the program. This method should export all the Doctor, Patient and 
+	 * Visit data by overwriting the contents of the 3 original files.
+	 */
+	private void option9(){
+		exitAndSave();
+	}
+	
+	
+	/**
+	 * Export all the Doctor, Patient and Visit data by overwriting the contents of the 3 original csv files.
+	 */
+	private void exitAndSave(){
+				
+		try {
+			
+			//writing to the Doctors.csv file
+			FileWriter writer1=new FileWriter(this.aDoctorFilePath);
+			writer1.append("Firstname");
+		    writer1.append(',');
+		    writer1.append("Lastname");
+		    writer1.append(',');
+		    writer1.append("Specialty");
+		    writer1.append(',');
+		    writer1.append("DoctorID");
+		    writer1.append('\n');
+		    int numDocs=doctorList.size();
+		    
+		    //printing each doctor in the doctorList's info
+		    for (int i=0; i<numDocs; i++){
+		    	Doctor temp=doctorList.get(i);
+		    	writer1.append(temp.getFirstName());
+			    writer1.append(',');
+			    writer1.append(temp.getLastName());
+			    writer1.append(',');
+			    writer1.append(temp.getSpecialty());
+			    writer1.append(',');
+			    writer1.append(""+temp.getID());
+			    writer1.append('\n');
+		    }
+		    writer1.flush();
+		    writer1.close();
+		    
+		//catch any errors in opening the file
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		try {
+			//writing to the Patients.csv and Visits.csv files simultaneously 
+			FileWriter writer2=new FileWriter(this.aPatientFilePath);
+			FileWriter writer3=new FileWriter(this.aVisitsFilePath);
+			writer2.append("Firstname");
+		    writer2.append(',');
+		    writer2.append("Lastname");
+		    writer2.append(',');
+		    writer2.append("Height (cm)");
+		    writer2.append(',');
+		    writer2.append("Insurance");
+		    writer2.append(',');
+		    writer2.append("Gender");
+		    writer2.append(',');
+		    writer2.append("HospitalID");
+		    writer2.append(',');
+		    writer2.append("Date of Birth (mm-dd-yyyy)");
+		    writer2.append('\n');
+		    int numPatients=patientList.size();		    
+		    writer3.append("HospitalID");
+		    writer3.append(',');
+		    writer3.append("DoctorID");
+		    writer3.append(',');
+		    writer3.append("Date");
+		    writer3.append(',');
+		    writer3.append("DoctorNote");
+		    writer3.append('\n');
+		   
+		    //for each patient in the patientList, write their info to the Patients.csv file
+		    for (int i=0; i<numPatients; i++){
+		    	Patient temporary=patientList.get(i);
+		    	writer2.append(temporary.getFirstName());
+			    writer2.append(',');
+			    writer2.append(temporary.getLastName());
+			    writer2.append(',');
+			    writer2.append(""+temporary.getHeight());
+			    writer2.append(',');
+			    writer2.append(""+temporary.getInsurance());
+			    writer2.append(',');
+			    writer2.append(temporary.getGender());
+			    writer2.append(',');
+			    writer2.append(""+temporary.getHospitalID());
+			    writer2.append(',');
+			    writer2.append(temporary.getDateOfBirth());
+			    writer2.append('\n');
+			    
+			    //and then for each patient's visitList, write the info from each of their visits to the Visits.csv file
+			    int numVisits=temporary.aVisitList.size();
+			    for (int j=0; j<numVisits; j++){
+			    	Visit tbwVisit=temporary.aVisitList.get(j);
+			    	writer3.append(""+tbwVisit.getPatient().getHospitalID());
+			    	writer3.append(',');
+			    	writer3.append(""+tbwVisit.getDoctor().getID());
+			    	writer3.append(',');
+			    	writer3.append(""+tbwVisit.getDate());
+			    	writer3.append(',');
+			    	writer3.append(""+tbwVisit.getNote());
+			    	writer3.append('\n');
+			    }
+		    }
+		    writer2.flush();
+		    writer2.close();
+		    writer3.flush();
+		    writer3.close();
+		
+		//catch and errors in opening the patients and visits files
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		//end the program
+		System.exit(0);
+	}
+}
+
+/**
+ * This simple class just keeps the information about
+ * a Patient together. You will have to Modify this class
+ * and fill in missing data.
+ */
+class Patient
+{
+	public enum Insurance {RAMQ, Private, NONE};
+	
+	private String aFirstName;
+	private String aLastName;
+	private double aHeight;
+	private String aGender;
+	private Insurance aInsurance;
+	private Long aHospitalID;
+	private String aDateOfBirth; //ex. 12-31-1988 (Dec. 31st, 1988)
+	ArrayList<Visit> aVisitList = new ArrayList<Visit>();
+	
+	public Patient(String pFirstName, String pLastName, double pHeight, Insurance pInsurance, String pGender,
+			Long pHospitalID, String pDateOfBirth)
+	{
+		//TODO: Fill code here
+		
+		aFirstName = pFirstName;
+		aLastName = pLastName;
+		aHeight = pHeight;
+		aGender = pGender;
+		aInsurance = pInsurance;
+		aHospitalID = pHospitalID;
+		aDateOfBirth = pDateOfBirth;
+	}
+	
+	public String getFirstName()
+	{
+		return aFirstName;
+	}
+	
+	public String getLastName()
+	{
+		return aLastName;
+	}
+
+	public String getHospitalID()
+	{
+		String HospitalID = String.valueOf(aHospitalID);
+		return HospitalID;
+	}
+	
+	public double getHeight(){
+		return aHeight;
+	}
+	
+	public Insurance getInsurance(){
+		return aInsurance;
+	}
+
+	public String getGender(){
+		return aGender;
+	}
+	
+	public String getDateOfBirth()
+	{
+		return aDateOfBirth;
+	}
+
+	public void addVisit(String vDate, Doctor vDoctor)
+	{
+		//code works without this, not needed
+	}
+	
+	public void setFirstName(String fname){
+		this.aFirstName = fname;
+	}
+	
+	public void setLastName(String lname){
+		this.aLastName = lname;
+	}
+	
+	public void setHeight(double height){
+		this.aHeight = height;
+	}
+	
+	public void setInsurance(Insurance type){
+		this.aInsurance = type;
+	}
+	
+	public void setDateOfBirth(String dob){
+		this.aDateOfBirth = dob;
+	}
+	
+	/**
+	 * This method should print all the Patient's info. "ID, Lastname, Firstname, etc..."
+	 */
+	public String toString()
+	{
+		return aHospitalID + "," + aLastName + "," + aFirstName + "," + aGender + "," + aInsurance + "," + aHeight + "," + aDateOfBirth + "\n";		
+	}
+}		
+
+/**
+ * This simple class just keeps the information about
+ * a Doctor together. Do modify this class as needed.
+ */
+class Doctor
+{
+	private String aFirstName;
+	private String aLastName;
+	private String aSpecialty; 
+	private Long aID;
+	
+	public Doctor(String pFirstName, String pLastName, String pSpecialty, Long ID)
+	{
+		aFirstName = pFirstName;
+		aLastName = pLastName;
+		aSpecialty = pSpecialty;
+		aID = ID;
+	}
+	
+	public String getFirstName()
+	{
+		return aFirstName;
+	}
+	
+	public String getLastName()
+	{
+		return aLastName;
+	}
+
+	public String getSpecialty(){
+		return aSpecialty;
+	}
+
+	public Long getID()
+	{
+		return aID;
+	}
+	
+	/**
+	 * This method should print all the Doctor's info. "ID, Lastname, Firstname, Specialty"
+	 */
+	public String toString()
+	{
+		return aID + "," + aLastName + "," + aFirstName + "," + aSpecialty;
+	}
+
+}
+
+/**
+ * This simple class just keeps the information about
+ * a Visit together. Do modify this class as needed.
+ */
+class Visit
+{
+	private Doctor aDoctor;
+	private Patient aPatient;
+	private String aDate; 
+	private String aNote;
+	
+	public Visit(Doctor vDoctor, Patient vPatient, String vDate, String vNote)
+	{
+		//TODO: Fill code here
+		
+		aDoctor = vDoctor;
+		aPatient = vPatient;
+		aDate = vDate;
+		aNote = vNote;
+	}
+	
+	public Doctor getDoctor()
+	{
+		//TODO: Fill code here
+		return aDoctor;
+	}
+	
+	public Patient getPatient()
+	{
+		//TODO: Fill code here
+		return aPatient;
+	}
+
+	public String getDate(){
+		//TODO: Fill code here
+		return aDate;
+	}
+	
+	public String getNote(){
+		//TODO: Fill code here
+		return aNote;
+	}
+
+
+}
